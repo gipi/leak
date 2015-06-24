@@ -1,10 +1,12 @@
+#!/usr/bin/env python
+# encoding: utf-8
 from lxml import etree
 import os
 import re
 import subprocess
 import sys
 import requests
-from leak.base import Leaker, Parser
+from leak.base import Leaker, Parser, LeakerEOS
 import xml.etree.ElementTree as ET
 
 
@@ -65,11 +67,14 @@ class MaraboutLeaker(Leaker):
 
         self.filesystem = {os.path.normpath(params['a']): WAITING}
         self.paths      = [params['a']]
+        self.finished = False
+
+    def has_finished(self):
+        return self.finished
 
     def get_next_input_parameter(self):
         if len(self.paths) == 0:
-            print self.filesystem
-            sys.exit(0)
+            raise LeakerEOS('No more paths')
 
         return self.paths.pop(0)
 
@@ -99,3 +104,7 @@ class MaraboutLeaker(Leaker):
     def output(self, leak_representation):
         kind, filename, content = leak_representation
         print filename, os.path.normpath(filename)
+
+    def on_exit(self):
+        print self.filesystem
+        sys.exit(0)

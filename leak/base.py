@@ -22,6 +22,11 @@ class RegexParser(Parser):
         return leak
 
 
+
+class LeakerEOS(Exception):
+    '''Indicates that the stream doesn't have more data of interest'''
+    pass
+
 class Leaker(object):
     def __init__(self, parser=None, **kwargs):
         if not parser:
@@ -46,16 +51,21 @@ class Leaker(object):
     def extract(self):
         return self.parser.get_leak(self.input())
 
+    def has_finished(self):
+        return False
+
+    def on_exit(self):
+        pass
+
     def __call__(self):
-        while True:
-            #try:
-            representation = self.extract() # here we obtain the first representation from the parser
-            representation = self.update(representation) # here we elaborate the text to create some representation
-            self.output(representation)
-            #except Exception as e:
+        while not self.has_finished():
+            try:
+                representation = self.extract() # here we obtain the first representation from the parser
+                representation = self.update(representation) # here we elaborate the text to create some representation
+                self.output(representation)
+            except LeakerEOS as e:
+                break
             #    print >> sys.stderr, "fatal:", e
             #    raise e
 
-class LeakerEOS(Exception):
-    pass
-
+        self.on_exit()
