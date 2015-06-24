@@ -12,8 +12,6 @@ class RegexParser(Parser):
     def get_leak(self, data):
         pattern = re.compile(self.pattern, re.DOTALL|re.M)
 
-        #import ipdb;ipdb.set_trace()
-
         leak = ""
         try:
             leak = pattern.findall(data)[0]
