@@ -2,7 +2,7 @@ import sys
 import os
 import subprocess
 
-from .base import Leaker, RegexParser
+from .base import Leaker, RegexParser, LeakerEOS
 from .utils import convert_address_to_string
 
 
