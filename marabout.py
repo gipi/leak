@@ -95,6 +95,7 @@ class MaraboutLeaker(Leaker):
 
         if kind == DIR:
             # add the paths just found to the list avoiding the one already in
+            # using for the normalized path in the dictionary
             paths = [os.path.join(filepath , _.text) for _ in leak_representation[1]]
             contents = filter(lambda x: not self.filesystem.has_key(os.path.normpath(x)), paths)
             self.paths += contents
@@ -102,6 +103,7 @@ class MaraboutLeaker(Leaker):
         return (kind, filepath, contents)
 
     def output(self, leak_representation):
+        # when we found file contents we save it in a file that has as name the path urlencoded
         kind, filename, content = leak_representation
         print filename, os.path.normpath(filename)
 
