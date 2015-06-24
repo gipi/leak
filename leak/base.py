@@ -49,9 +49,9 @@ class Leaker(object):
     def __call__(self):
         while True:
             #try:
-            leak = self.extract() # here ww obtain
-            leak = self.update(leak)
-            self.output(leak)
+            representation = self.extract() # here we obtain the first representation from the parser
+            representation = self.update(representation) # here we elaborate the text to create some representation
+            self.output(representation)
             #except Exception as e:
             #    print >> sys.stderr, "fatal:", e
             #    raise e
