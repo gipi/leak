@@ -9,6 +9,10 @@ import requests
 from leak.base import Leaker, Parser, LeakerEOS
 import xml.etree.ElementTree as ET
 
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 FILE = 1
 DIR  = 2
