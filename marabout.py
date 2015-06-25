@@ -73,6 +73,15 @@ class MaraboutLeaker(Leaker):
         self.paths      = [params['a']]
         self.finished = False
 
+        self.output_dir = '/tmp/output/'
+
+        if not os.path.exists(self.output_dir):
+            logger.info('creating outout dir %s' % self.output_dir)
+            os.mkdir(self.output_dir)
+
+    def _path_from_output_dir(self, path):
+        return os.path.join(self.output_dir, path)
+
     def has_finished(self):
         return self.finished
 
