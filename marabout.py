@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import requests
+import urllib
 from leak.base import Leaker, Parser, LeakerEOS
 import xml.etree.ElementTree as ET
 
@@ -118,8 +119,47 @@ class MaraboutLeaker(Leaker):
     def output(self, leak_representation):
         # when we found file contents we save it in a file that has as name the path urlencoded
         kind, filename, content = leak_representation
-        print filename, os.path.normpath(filename)
+        if kind == FILE:
+            tmpfilepath = os.path.join(self.output_dir, urllib.quote_plus(os.path.normpath(filename)))
+            with open(tmpfilepath, "w+b") as f:
+                f.write(content.encode('utf-8'))
+
+        print filename
 
     def on_exit(self):
         print self.filesystem
-        sys.exit(0)
+        # find out how many '..' are present
+        paths = self.filesystem.keys()
+
+        how_deep_is = max([len(filter(lambda x: x == '..', _.split('/'))) for _ in paths])
+
+        dir_path = ''
+        for _ in xrange(how_deep_is):
+            actual_path = os.path.join(dir_path, chr(ord('a') + _))
+            abs_path = self._path_from_output_dir(actual_path)
+            if not os.path.exists(abs_path):
+                os.mkdir(abs_path)
+
+            dir_path = actual_path
+
+        # now dir_path is the directory from which we start to reconstruct the tree
+        abs_dir_path = self._path_from_output_dir(dir_path)
+
+        # retrieve the file from the output dir
+        root, dirs, files = os.walk(self.output_dir).next()
+
+        #import ipdb;ipdb.set_trace()
+
+        for filepath in files:
+            real_path = os.path.abspath(os.path.join(abs_dir_path, urllib.unquote_plus(filepath)))
+            # avoid to act on directory (maybe remove it)
+            if os.path.isdir(real_path):
+                continue
+
+            containing_dir = os.path.dirname(real_path)
+            if not os.path.exists(containing_dir):
+                os.makedirs(containing_dir)
+
+            src = self._path_from_output_dir(filepath)
+            print '%s -> %s' % (src, real_path)
+            os.rename(src, real_path)
