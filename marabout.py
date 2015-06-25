@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 # encoding: utf-8
+'''
+Fantastic module that tries to dump a complete site using a LFI.
+
+Saves temporary the file using the urlencoded complete path and after
+all the dump rebuild the tree.
+'''
 from lxml import etree
 import os
 import re
