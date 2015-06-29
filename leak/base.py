@@ -1,5 +1,8 @@
 import re
 
+class UnexpectedPattern(Exception):
+    pass
+
 class Parser(object):
     def get_leak(self, data):
         return data
