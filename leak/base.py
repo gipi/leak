@@ -38,6 +38,7 @@ class Leaker(object):
         self.parser = parser
 
     def input(self):
+        '''Here is where you call your channel and return some data to elaborate upon'''
         raise NotImplementedError('you have to implement input()')
 
     def get_next_input_parameter(self):
