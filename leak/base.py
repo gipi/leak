@@ -69,6 +69,8 @@ class Leaker(object):
                 self.output(representation)
             except LeakerEOS as e:
                 break
+            except KeyboardInterrupt:
+                break
             #    print >> sys.stderr, "fatal:", e
             #    raise e
 
