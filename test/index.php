@@ -23,10 +23,11 @@ function safe($string,$i=0) {
     return $safe;
 }
 
-
 $msg="";
 if(isset($_POST['login'],$_POST['pass']) and !empty($_POST['login']) and !empty($_POST['pass']) ) {
 
+    // note that in this way the user will never log in since the password is saved
+    // as text and compared as binary ;)
     $passwd=sha1($_POST['pass'],true);
     $username=safe($_POST['login']);
     $sql="SELECT login FROM $table WHERE passwd='$passwd' AND login='$username'";
@@ -45,6 +46,7 @@ if(isset($_POST['login'],$_POST['pass']) and !empty($_POST['login']) and !empty(
 
 $db->close();
 ?>
+<h2><?php print $msg; ?></h2>
 <form action="" method="POST">
     <input type="text" name="login">
     <input type="password" name="pass">

