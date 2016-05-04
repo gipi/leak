@@ -42,7 +42,7 @@ class Leaker(object):
         raise NotImplementedError('you have to implement input()')
 
     def get_next_input_parameter(self):
-        pass
+        raise NotImplementedError('you have to implemement get_next_input_parameter()')
 
     def update(self, leak):
         """Update internal state after a leak"""
