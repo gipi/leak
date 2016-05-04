@@ -31,7 +31,7 @@ class TCPLeaker(Leaker):
         super(TCPLeaker, self).__init__(**kwargs)
 
         self.host = host
-        self.port = port
+        self.port = str(port)
 
     def input(self):
         nc = subprocess.Popen(['ncat', self.host, self.port], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
