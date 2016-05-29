@@ -1,3 +1,6 @@
+import logging
+
+
 import re
 import sys
 
@@ -5,14 +8,31 @@ class UnexpectedPattern(Exception):
     pass
 
 class Parser(object):
+    '''Parser class that simply returns the data of interest from a leaking service
+
+    Probably you want to use the RegexParser if your case is a simple static parameter
+    matching, otherwise you have to subclass this with a more complex data retrieval case
+    (like an XML parser).
+
+    If the internal state of the parser need to be updated based on leaker decision,
+    you have to implement the update method (and call it obviously).
+    '''
+    def __init__(self):
+        super(Parser, self).__init__()
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+
     def get_leak(self, data):
         return data
 
+    def update(self, *args, **kwargs):
+        pass
+
 
 class RegexParser(Parser):
-    '''Parser class that simply returns the data of interest from a leaking
-    service'''
     def __init__(self, pattern, regex_flags=None):
+        super(RegexParser, self).__init__()
+
         self.pattern = pattern
         self.regex_flags = regex_flags or re.DOTALL|re.M
 
@@ -23,9 +43,13 @@ class RegexParser(Parser):
         try:
             leak = self.regex.match(data)
         except Exception as e:
-            print >> sys.stderr, " [!]", data
-            raise e
+            self.logger.exception(data)
+            raise UnexpectedPattern('the string \'%s\' doesn\'t match the regex \'%s\'' % (
+                data,
+                self.regex,
+            ))
 
+        # TODO: maybe returns Status, data
         return leak.groupdict()
 
 
@@ -53,6 +77,16 @@ class BaseLeaker(object):
         if not parser:
             raise AttributeError('you must pass a valid parser instance')
 
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.DEBUG)
+
+        stream = logging.StreamHandler()
+        formatter = logging.Formatter('%(levelname)s - %(filename)s:%(lineno)d - %(message)s')
+
+        stream.setFormatter(formatter)
+
+        self.logger.addHandler(stream)
+
         self.parser = parser
 
         # this two below are for session data
@@ -60,7 +94,7 @@ class BaseLeaker(object):
         self._leak = None # this will contain the data extracted
 
         # this is a global state
-        self._state = None # this will contain the data structure to be reconstructed from the leaks
+        self._state = {} # this will contain the data structure to be reconstructed from the leaks
 
     def input(self, args, **kwargs):
         '''Here is where you call your channel and return some data to elaborate upon'''
@@ -73,6 +107,9 @@ class BaseLeaker(object):
         """Update internal state after a leak using the dictionary returned from the parser."""
         raise NotImplementedError('you have to implement update()')
 
+    def has_finished(self):
+        raise NotImplementedError('you have to implement has_finished()')
+
     @property
     def state(self):
         '''
@@ -81,11 +118,12 @@ class BaseLeaker(object):
         return self._state
 
     def extract(self):
-        self._data = self.input(self.get_next_input_parameters())
+        input_args, input_kwargs = self.get_next_input_parameters()
+        self.logger.debug('args=%s kwargs=%s' % (input_args, input_kwargs))
+        self._data = self.input(*input_args, **input_kwargs)
         self._leak = self.parser.get_leak(self._data)
 
-    def has_finished(self):
-        return NotImplementedError('you have to implement has_finished()')
+        self.logger.debug('%s\n\n ->\n\n%s' % (self._data, self._leak))
 
     def on_session_start(self):
         pass
@@ -112,3 +150,16 @@ class BaseLeaker(object):
                 break
 
         self.on_end()
+
+        return self.state
+
+
+class StaticInputParametersMixin(object):
+    def get_next_input_parameters(self):
+        return (), {}
+
+
+class HasFinishedMixin(object):
+    def has_finished(self):
+        return False
+
