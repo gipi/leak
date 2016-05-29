@@ -1,5 +1,6 @@
 import logging
 
+import math
 
 import re
 import sys
@@ -163,3 +164,63 @@ class HasFinishedMixin(object):
     def has_finished(self):
         return False
 
+
+class BaseDicotomia(object):
+    '''
+    Base class to iteractively guess with boolean questions a given value.
+
+    You have to subclass the __repr__() method to customize the data structure
+    that fits your need.
+    '''
+    def __init__(self, N=None, alphabet=None):
+        super(BaseDicotomia, self).__init__()
+
+        if not N and not alphabet:
+            raise ValueError('you must indicate one of \'N\' or \'alphabet\' parameters')
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.DEBUG)
+
+        self.alphabet = alphabet
+
+        if alphabet: # deduce the number of bits needed for this alphabet
+            N = int(math.ceil(math.log(len(alphabet), 2)))
+
+        self.N = N # this is the number of bits needed to describe the result given the alphabet
+        self.M = N - 1 # this is the decreasing index of the bit to be guessed
+
+        self.value = 0
+        self.range = [0, 2**N]
+
+    def __repr__(self):
+        if self.alphabet:
+            return self.alphabet[self.range[0]:self.range[1]]
+        else:
+            return self.value
+
+    def initialize(self):
+        return str(self)
+
+    def next_value(self, guess):
+        #if self.M == 0:
+        #    raise StopIteration()
+
+        if self.has_finished():
+            raise ValueError('this bisection was over')
+
+        self.logger.debug('range before %s' % self.range)
+
+        if guess:
+            self.value += 2**self.M
+            self.range[0] += 2**self.M
+        else:
+            self.range[1] = self.value + 2**self.M
+
+        self.logger.debug('range after  %s' % self.range)
+
+        self.M -= 1
+
+        return self.__repr__()
+
+    def has_finished(self):
+        return self.range[0] == (self.range[1] - 1)
