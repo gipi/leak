@@ -40,14 +40,19 @@ class RegexParser(Parser):
         self.regex = re.compile(self.pattern, self.regex_flags)
 
     def get_leak(self, data):
+        failed = False
         leak = None
+        #import ipdb;ipdb.set_trace()
         try:
             leak = self.regex.match(data)
         except Exception as e:
+            failed = True
+
+        if failed or not leak:
             self.logger.exception(data)
             raise UnexpectedPattern('the string \'%s\' doesn\'t match the regex \'%s\'' % (
                 data,
-                self.regex,
+                self.regex.pattern,
             ))
 
         # TODO: maybe returns Status, data
@@ -122,6 +127,7 @@ class BaseLeaker(object):
         input_args, input_kwargs = self.get_next_input_parameters()
         self.logger.debug('args=%s kwargs=%s' % (input_args, input_kwargs))
         self._data = self.input(*input_args, **input_kwargs)
+        self.logger.debug('response=%s' % self._data)
         self._leak = self.parser.get_leak(self._data)
 
         self.logger.debug('%s\n\n ->\n\n%s' % (self._data, self._leak))
