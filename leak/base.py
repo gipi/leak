@@ -217,12 +217,12 @@ class BaseDicotomia(object):
 
     @property
     def median(self):
-        return (self.range[1] - self.range[0]) / 2 if not self.alphabet else len(self.range)/2
+        return (self.range[0] + ((self.range[1] - self.range[0]) / 2)) if not self.alphabet else len(self.range)/2
 
     @property
     def guess(self):
         if self.alphabet:
-            return self.alphabet[:self.median]
+            return self.range[:self.median] if self.median > 0 else self.range
 
         return str(self.median)
 
@@ -245,8 +245,6 @@ class BaseDicotomia(object):
             self.logger.debug('range after  %s' % self.range)
 
             self.M -= 1
-
-        return self.__repr__()
 
     def has_finished(self):
         return self.range[0] == (self.range[1] - 1) if not self.alphabet else len(self.range) == 1

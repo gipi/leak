@@ -34,11 +34,14 @@ def test_dicotomia():
 
     assert guesser.guess == 'ab'
 
-    assert guesser.submit_oracle(True) == 'ab'
-    assert guesser.guess == 'a'
-    assert guesser.submit_oracle(False) == 'b'
+    assert guesser.submit_oracle(False) is None
+    assert guesser.range == 'cde'
+    assert guesser.guess == 'c'
 
-    print guesser.has_finished()
+    assert guesser.submit_oracle(True) is None
+    assert guesser.guess == 'c'
+
+    assert guesser.has_finished()
 
     guesser_alphanumeric = BaseDicotomia(alphabet=string.letters+string.digits)
     print guesser_alphanumeric.guess
