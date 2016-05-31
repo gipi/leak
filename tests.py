@@ -14,26 +14,32 @@ def test_stdin_leaker():
 
     print leaker()
 
-def test_dictomia():
-    value_to_guess = 255
-
+def test_dicotomia():
     guesser = BaseDicotomia(N=8)
-
-    print guesser.initialize()
 
     guesses = [True, True, True, True, True, True, True, True]
 
-    print [guesser.next_value(_) for _ in guesses]
+    assert guesser.guess == '128'
+
+    print [guesser.submit_oracle(_) for _ in guesses]
     assert guesser.has_finished()
 
     print guesser.value
 
-    guesses = [False, False, True, False, False, False]
+    guesses = [True, False, False, False, False, False]
 
-    guesser = BaseDicotomia(alphabet=string.letters)
+    alphabet = 'abcde'
 
-    print guesser.initialize()
+    guesser = BaseDicotomia(alphabet=alphabet)
 
-    print [guesser.next_value(_) for _ in guesses]
+    assert guesser.guess == 'ab'
+
+    assert guesser.submit_oracle(True) == 'ab'
+    assert guesser.guess == 'a'
+    assert guesser.submit_oracle(False) == 'b'
 
     print guesser.has_finished()
+
+    guesser_alphanumeric = BaseDicotomia(alphabet=string.letters+string.digits)
+    print guesser_alphanumeric.guess
+    print guesser_alphanumeric.submit_oracle(True)

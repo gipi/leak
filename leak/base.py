@@ -194,41 +194,53 @@ class BaseDicotomia(object):
         if alphabet: # deduce the number of bits needed for this alphabet
             N = int(math.ceil(math.log(len(alphabet), 2)))
 
+        self.logger.debug('needed %d bits to describe our alphabet' % N)
         self.N = N # this is the number of bits needed to describe the result given the alphabet
         self.M = N - 1 # this is the decreasing index of the bit to be guessed
 
         self.value = 0
-        self.range = [0, 2**N]
+        self.range = self.alphabet if self.alphabet else [0, 2**N]
+
+        #self.logger.debug('using range [%d, %d]' % (self.range[0], self.range[1]))
 
     def __repr__(self):
         if self.alphabet:
-            return self.alphabet[self.range[0]:self.range[1]]
+            return self.range
         else:
-            return self.value
+            return str(self.value) # must be always be a string
 
-    def initialize(self):
-        return str(self)
+    @property
+    def median(self):
+        return (self.range[1] - self.range[0]) / 2 if not self.alphabet else len(self.range)/2
 
-    def next_value(self, guess):
-        #if self.M == 0:
-        #    raise StopIteration()
+    @property
+    def guess(self):
+        if self.alphabet:
+            return self.alphabet[:self.median]
 
+        return str(self.median)
+
+    def submit_oracle(self, guess):
         if self.has_finished():
             raise ValueError('this bisection was over')
 
         self.logger.debug('range before %s' % self.range)
 
-        if guess:
-            self.value += 2**self.M
-            self.range[0] += 2**self.M
+        # if it's an alphabet the procedure is different
+        if self.alphabet:
+            self.range = self.range[:self.median] if guess else self.range[self.median:]
         else:
-            self.range[1] = self.value + 2**self.M
+            if guess:
+                self.value += 2**self.M
+                self.range[0] += 2**self.M
+            else:
+                self.range[1] = self.value + 2**self.M
 
-        self.logger.debug('range after  %s' % self.range)
+            self.logger.debug('range after  %s' % self.range)
 
-        self.M -= 1
+            self.M -= 1
 
         return self.__repr__()
 
     def has_finished(self):
-        return self.range[0] == (self.range[1] - 1)
+        return self.range[0] == (self.range[1] - 1) if not self.alphabet else len(self.range) == 1
