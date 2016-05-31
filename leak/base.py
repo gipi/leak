@@ -167,10 +167,18 @@ class HasFinishedMixin(object):
 
 class BaseDicotomia(object):
     '''
-    Base class to iteractively guess with boolean questions a given value.
+    Base class to iteractively guess with boolean questions to an Oracle a given value.
 
     You have to subclass the __repr__() method to customize the data structure
     that fits your need.
+
+    There are two main ways to use this class: or you indicate the number of bits
+    of the integer to guess or you pass an alphabet of symbols to guess.
+
+    In the first case the use case is for query where x>=guess so that the boolean
+    responses build up a binary representation of the number.
+
+    In this second case the probable query will be like 'contains("abcde",string)'.
     '''
     def __init__(self, N=None, alphabet=None):
         super(BaseDicotomia, self).__init__()
