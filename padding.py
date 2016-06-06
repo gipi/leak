@@ -23,9 +23,14 @@ class CBCPaddingOracle(HTTPLeaker):
         super(CBCPaddingOracle, self).__init__(parser=RedPillsParser(), **kwargs)
 
         self.state.update({
+            'original_ciphertext': 'E5D68870EB5626D54D4F12F2A5EA2F80550CF3C11CF45ED978C5CD8155724490',
+            #'original_ciphertext': '78152889BDF27A930F14742DBB54A6DECE87A24713B30B76987D2A87DD9D6C52FA1A6B697D62000332F435B99D8371DD', # about us
+            'block_length': 16,
             'state': self.State.ORIGINAL_PADDING_FINDING,
             'idx': 0,
         })
+
+        self.logger.info('we start with a message of %d bytes' % (len(self.state['original_ciphertext'])/2))
 
     def update(self):
         state = self.state['state']
@@ -40,11 +45,15 @@ class CBCPaddingOracle(HTTPLeaker):
             if file:
                 self.state['idx'] += 1
             elif padding_error:
-                self.logger.info('find padding of %d bytes' % self.state['idx'])
+                self.logger.info('padding starts at offset %d' % (self.block_offset(self.blocks_number - 2) + self.state['idx']))
+                self.state['state'] = self.State.BYTE_RETRIEVAL
+                self.state['idx']   = 0 # this index is from the tail of the string
                 raise
+            elif success:
+                raise ValueError('this is bad my friend')
 
         elif state == self.State.BYTE_RETRIEVAL:
-            pass
+            raise
 
     def get_requests_method(self):
         return 'GET'
@@ -55,12 +64,24 @@ class CBCPaddingOracle(HTTPLeaker):
     def has_finished(self):
         return False
 
-    def get_requests_params(self):
+    @property
+    def blocks_number(self):
+        return len(self.state['original_ciphertext'])/self.state['block_length']/2 # FIXME: write internally as byte
 
-        ciphertext = 'E5D68870EB5626D54D4F12F2A5EA2F80550CF3C11CF45ED978C5CD8155724490'
+    def block_offset(self, n):
+        assert n >= 0
+        assert n <= (self.blocks_number - 1)
+
+        return  self.state['block_length'] * n
+
+    def get_requests_params(self):
+        ciphertext = self.state['original_ciphertext']
+        #ciphertext  = '865D1C0FB5BDB18B29F8CCA11B16FED0BDC02999AE07156FE2B6EC4274235529BD6C85A19359D78977F8B713DE9A47EF' # about us
 
         if self.state['state'] == self.State.ORIGINAL_PADDING_FINDING:
-            idx = self.state['idx']*2
+            # first of all we find the offset of the block before the last
+            #import ipdb;ipdb.set_trace()
+            idx = (self.block_offset(self.blocks_number - 2) + self.state['idx']) * 2
             ciphertext= ciphertext[:idx] + '00' + ciphertext[idx + 2:]
 
         return {
