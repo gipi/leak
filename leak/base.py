@@ -130,7 +130,7 @@ class BaseLeaker(object):
         self.logger.debug('response=%s' % self._data)
         self._leak = self.parser.get_leak(self._data)
 
-        self.logger.debug('%s\n\n ->\n\n%s' % (self._data, self._leak))
+        self.logger.debug('leak=%s' % (self._leak))
 
     def on_session_start(self):
         pass

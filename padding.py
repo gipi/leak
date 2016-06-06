@@ -11,7 +11,6 @@ from leak.leak import HTTPLeaker
 
 class RedPillsParser(RegexParser):
     def __init__(self):
-        print u'ééé'
         super(RedPillsParser, self).__init__(pattern=r'.*((?P<success><h2>Home</h2>)|(?P<file><h2>File not found</h2>)|(?P<padding_error><h2>Server Error: Padding Error</h2>).*)')
 
 
@@ -21,7 +20,6 @@ class CBCPaddingOracle(HTTPLeaker):
         BYTE_RETRIEVAL           = 1
 
     def __init__(self, **kwargs):
-        print '????'
         super(CBCPaddingOracle, self).__init__(parser=RedPillsParser(), **kwargs)
 
         self.state.update({
@@ -55,7 +53,6 @@ class CBCPaddingOracle(HTTPLeaker):
         return {}
 
     def has_finished(self):
-        print '@@@@'
         return False
 
     def get_requests_params(self):
