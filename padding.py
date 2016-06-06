@@ -42,7 +42,7 @@ class CBCPaddingOracle(HTTPLeaker):
             'idx': 0,
         })
 
-        self.logger.info('we start with a message of %d bytes' % (len(self.state['original_ciphertext'])/2))
+        self.logger.info('we start with a message of %d bytes' % (len(self.ciphertext)))
 
     def update(self):
         state = self.state['state']
