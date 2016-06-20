@@ -74,7 +74,7 @@ class CBCPaddingOracle(HTTPLeaker):
         self.state['mask'] = mask[:block_start_offset] + (xor(mask[block_start_offset:block_end_offset], xored_new_padding)) + mask[block_end_offset:]
 
         '''we update the index of the byte we are looking for'''
-        self.state['padding'] += 1
+        self.state['idx'] += 1
 
     def update(self):
         state = self.state['state']
@@ -94,6 +94,9 @@ class CBCPaddingOracle(HTTPLeaker):
 
                 padding = self.state['block_length'] - self.state['idx']  # this index is from the tail of the string
                 self.state['idx']   = padding # idx will memorize the last value of padding correctly decoded
+
+                self.state['mask'] = '\x00' * self.state['block_length']
+                self.state['mask_byte'] = '\x00'
 
                 self.update_mask()
 
@@ -143,7 +146,7 @@ class CBCPaddingOracle(HTTPLeaker):
         if self.state['state'] == self.State.ORIGINAL_PADDING_FINDING:
             # first of all we find the offset of the block before the last
             idx = (self.block_offset(self.blocks_number - 2) + self.state['idx'])
-            ciphertext= ciphertext[:idx] + '0' + ciphertext[idx + 1:]
+            ciphertext = ciphertext[:idx] + '\x00' + ciphertext[idx + 1:]
         elif self.state['state'] == self.State.BYTE_RETRIEVAL:
             # here there is the real juice: we modify the original second-last
             # block
