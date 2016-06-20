@@ -1,5 +1,7 @@
 # encoding: utf-8
 import logging
+
+import itertools
 from enum import Enum
 
 from leak.base import RegexParser
@@ -15,8 +17,19 @@ def hexify(msg):
 def dehexify(msg):
     return ''.join([chr(int(msg[2*_:2*(_ + 1)], 16)) for _ in xrange(0, len(msg)/2)])
 
+# https://stackoverflow.com/questions/4815792/loop-over-2-lists-repeating-the-shortest-until-end-of-longest
 def xor(a, b):
-    return chr(ord(a)^ord(b))
+    r'''
+        >>> xor('\xff', '\xff')
+        '\x00'
+        >>> xor('\x00\xff', '\x00')
+        '\x00\xff'
+        >>> xor('\x00\x41\x42', '\x00\x41\x42')
+        '\x00\x00\x00'
+    '''
+    return ''.join([
+        chr(ord(x)^ord(y)) for x, y in zip(a, itertools.cycle(b))
+    ])
 
 
 class RedPillsParser(RegexParser):
